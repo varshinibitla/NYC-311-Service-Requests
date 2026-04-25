@@ -1,0 +1,289 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NYC 311 Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #12243a;
+      --muted: #4a607d;
+      --line: #d6e0ef;
+      --accent: #0f62fe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top left, #edf3ff, var(--bg));
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    h1 { margin: 0 0 8px; }
+    .sub { color: var(--muted); margin: 0; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+    input[type="date"], button {
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #b8c8e0;
+      font-size: 14px;
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .kpi {
+      background: #f8fbff;
+      border: 1px solid #dce7f7;
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 90px;
+    }
+    .kpi .label { color: var(--muted); font-size: 13px; }
+    .kpi .value {
+      margin-top: 6px;
+      font-size: 26px;
+      font-weight: 700;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid #edf1f7;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    .status { min-height: 22px; color: var(--muted); }
+    pre {
+      background: #0f1724;
+      color: #dbe7ff;
+      padding: 10px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      max-height: 260px;
+      overflow: auto;
+      font-size: 12px;
+    }
+    @media (max-width: 900px) {
+      .row, .kpis, .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>NYC 311 Backend Dashboard</h1>
+      <p class="sub">Run scripts with a date filter and view aggregated outputs.</p>
+    </div>
+
+    <div class="panel">
+      <div class="row">
+        <div>
+          <label for="startDate">Date</label>
+          <input id="startDate" type="date" />
+        </div>
+        <button id="runBtn">Run Pipeline</button>
+        <button id="refreshBtn" style="background:#334e72;">Refresh Results</button>
+      </div>
+      <p id="status" class="status"></p>
+    </div>
+
+    <div class="panel kpis">
+      <div class="kpi"><div class="label">Total Requests</div><div id="kpiTotal" class="value">-</div></div>
+      <div class="kpi"><div class="label">Boroughs</div><div id="kpiBoroughs" class="value">-</div></div>
+      <div class="kpi"><div class="label">Top Complaint Count</div><div id="kpiTopCount" class="value">-</div></div>
+      <div class="kpi"><div class="label">Top Complaint Type</div><div id="kpiTopType" class="value" style="font-size:18px;">-</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h3>Borough Counts</h3>
+        <canvas id="boroughChart"></canvas>
+        <div id="boroughTable"></div>
+      </div>
+      <div class="panel">
+        <h3>High Volume Boroughs</h3>
+        <canvas id="highVolumeChart"></canvas>
+        <div id="highVolumeTable"></div>
+      </div>
+      <div class="panel">
+        <h3>Hourly Trend</h3>
+        <canvas id="hourlyChart"></canvas>
+        <div id="hourlyTable"></div>
+      </div>
+      <div class="panel">
+        <h3>Monthly Trend</h3>
+        <canvas id="monthlyChart"></canvas>
+        <div id="monthlyTable"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Top Complaints</h3>
+      <canvas id="complaintsChart"></canvas>
+      <div id="complaintsTable"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const state = { charts: {} };
+
+    function fmt(value) {
+      if (value === null || value === undefined || value === "") return "-";
+      return typeof value === "number" ? value.toLocaleString() : String(value);
+    }
+
+    function renderTable(containerId, rows) {
+      const root = document.getElementById(containerId);
+      if (!rows || rows.length === 0) {
+        root.innerHTML = "<p>No data.</p>";
+        return;
+      }
+      const cols = Object.keys(rows[0]);
+      const head = cols.map(c => `<th>${c}</th>`).join("");
+      const body = rows.map(r => `<tr>${cols.map(c => `<td>${fmt(r[c])}</td>`).join("")}</tr>`).join("");
+      root.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    }
+
+    function upsertChart(key, canvasId, type, labels, values, label) {
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      if (state.charts[key]) state.charts[key].destroy();
+      state.charts[key] = new Chart(ctx, {
+        type,
+        data: {
+          labels,
+          datasets: [{
+            label,
+            data: values,
+            borderColor: "#0f62fe",
+            backgroundColor: "rgba(15,98,254,0.25)",
+            fill: type === "line",
+            tension: 0.25
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: true }
+      });
+    }
+
+    function renderResults(payload) {
+      const { summary, datasets } = payload;
+      document.getElementById("kpiTotal").textContent = fmt(summary.total_requests);
+      document.getElementById("kpiBoroughs").textContent = fmt(summary.boroughs);
+      document.getElementById("kpiTopCount").textContent = fmt(summary.top_complaint_count);
+      document.getElementById("kpiTopType").textContent = fmt(summary.top_complaint_type);
+
+      const borough = datasets.borough_counts.rows || [];
+      renderTable("boroughTable", borough);
+      upsertChart("borough", "boroughChart", "bar", borough.map(r => r.borough), borough.map(r => r.count), "Count");
+
+      const highVolume = datasets.high_volume_boroughs.rows || [];
+      renderTable("highVolumeTable", highVolume);
+      upsertChart("highVolume", "highVolumeChart", "bar", highVolume.map(r => r.borough), highVolume.map(r => r.count), "Count");
+
+      const hourly = [...(datasets.hourly_trend.rows || [])].sort((a, b) => Number(a.hour) - Number(b.hour));
+      renderTable("hourlyTable", hourly);
+      upsertChart("hourly", "hourlyChart", "line", hourly.map(r => r.hour), hourly.map(r => r.count), "Count");
+
+      const monthly = datasets.monthly_trend.rows || [];
+      const monthLabels = monthly.map(r => `${r.year}-${String(r.month).padStart(2, "0")}`);
+      renderTable("monthlyTable", monthly);
+      upsertChart("monthly", "monthlyChart", "line", monthLabels, monthly.map(r => r.count), "Count");
+
+      const complaints = datasets.top_complaints.rows || [];
+      renderTable("complaintsTable", complaints);
+      upsertChart("complaints", "complaintsChart", "bar", complaints.map(r => r.complaint_type), complaints.map(r => r.count), "Count");
+    }
+
+    async function loadCurrentResults() {
+      const resp = await fetch("/api/results");
+      const data = await resp.json();
+      if (data.ok) renderResults(data);
+    }
+
+    async function runPipeline(actionLabel = "Running scripts... this can take a few minutes.") {
+      const date = document.getElementById("startDate").value;
+      const status = document.getElementById("status");
+      const runBtn = document.getElementById("runBtn");
+      const refreshBtn = document.getElementById("refreshBtn");
+
+      if (!date) {
+        status.textContent = "Please select a date.";
+        return;
+      }
+
+      runBtn.disabled = true;
+      refreshBtn.disabled = true;
+      status.textContent = actionLabel;
+
+      try {
+        const resp = await fetch("/api/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ start_date: date })
+        });
+        const data = await resp.json();
+
+        if (!resp.ok || !data.ok) {
+          status.textContent = data.error || "Pipeline failed.";
+          return;
+        }
+
+        status.textContent = "Pipeline completed successfully.";
+        renderResults(data);
+      } catch (err) {
+        status.textContent = `Request failed: ${err}`;
+      } finally {
+        runBtn.disabled = false;
+        refreshBtn.disabled = false;
+      }
+    }
+
+    document.getElementById("runBtn").addEventListener("click", () => runPipeline("Running scripts... this can take a few minutes."));
+    document.getElementById("refreshBtn").addEventListener("click", () => runPipeline("Refreshing by rerunning pipeline for selected date..."));
+
+    const today = new Date().toISOString().slice(0, 10);
+    document.getElementById("startDate").value = today;
+    loadCurrentResults();
+  </script>
+</body>
+</html>
