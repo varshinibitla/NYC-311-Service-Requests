@@ -54,11 +54,11 @@ Open:
 - On page load/refresh, date and results start empty.
 - Select a date in the date picker.
 - Changing the date automatically runs the pipeline for that date.
-- `Run` executes, in order:
+- Pipeline executes, in order:
   1. `scripts/download_api.py --start-date <selected-date>`
   2. `scripts/clean_data.py`
   3. `scripts/spark_analysis.py`
-- `Refresh Results` currently triggers the same pipeline for the selected date (same behavior as `Run`).
+- `Refresh Results` reruns the same pipeline for the selected date.
 - After completion, the UI shows KPI cards, charts, and tables.
 - The download step intentionally fetches a single ordered sample (`$limit=1000`, oldest rows after selected date), not full pagination.
 

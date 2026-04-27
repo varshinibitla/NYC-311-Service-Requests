@@ -37,7 +37,7 @@
     .sub { color: var(--muted); margin: 0; }
     .row {
       display: grid;
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: 1fr auto;
       gap: 10px;
       align-items: end;
     }
@@ -121,7 +121,6 @@
           <label for="startDate">Start Date</label>
           <input id="startDate" type="date" />
         </div>
-        <button id="runBtn">Run</button>
         <button id="refreshBtn" style="background:#334e72;">Refresh Results</button>
       </div>
       <p id="status" class="status"></p>
@@ -259,7 +258,6 @@
     async function runPipeline(actionLabel = "Running scripts... this can take a few minutes.") {
       const date = document.getElementById("startDate").value;
       const status = document.getElementById("status");
-      const runBtn = document.getElementById("runBtn");
       const refreshBtn = document.getElementById("refreshBtn");
 
       if (!date) {
@@ -267,7 +265,6 @@
         return;
       }
 
-      runBtn.disabled = true;
       refreshBtn.disabled = true;
       status.textContent = actionLabel;
 
@@ -289,12 +286,10 @@
       } catch (err) {
         status.textContent = `Request failed: ${err}`;
       } finally {
-        runBtn.disabled = false;
         refreshBtn.disabled = false;
       }
     }
 
-    document.getElementById("runBtn").addEventListener("click", () => runPipeline("Running scripts... this can take a few minutes."));
     document.getElementById("refreshBtn").addEventListener("click", () => runPipeline("Refreshing by rerunning for selected date..."));
     document.getElementById("startDate").addEventListener("change", () => {
       runPipeline("Date changed. Running for selected date...");
