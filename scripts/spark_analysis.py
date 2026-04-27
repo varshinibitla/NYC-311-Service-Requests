@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-DATA_PATH = BASE_DIR / "data" / "clean" / "311_clean_2020_present.csv"
+DATA_PATH = BASE_DIR / "data" / "clean" / "present.csv"
 OUTPUTS_DIR = BASE_DIR / "outputs"
 
 

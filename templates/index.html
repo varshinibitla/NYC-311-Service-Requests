@@ -118,10 +118,10 @@
     <div class="panel">
       <div class="row">
         <div>
-          <label for="startDate">Date</label>
+          <label for="startDate">Start Date</label>
           <input id="startDate" type="date" />
         </div>
-        <button id="runBtn">Run Pipeline</button>
+        <button id="runBtn">Run</button>
         <button id="refreshBtn" style="background:#334e72;">Refresh Results</button>
       </div>
       <p id="status" class="status"></p>
@@ -234,6 +234,22 @@
       upsertChart("complaints", "complaintsChart", "bar", complaints.map(r => r.complaint_type), complaints.map(r => r.count), "Count");
     }
 
+    function clearResults() {
+      document.getElementById("kpiTotal").textContent = "-";
+      document.getElementById("kpiBoroughs").textContent = "-";
+      document.getElementById("kpiTopCount").textContent = "-";
+      document.getElementById("kpiTopType").textContent = "-";
+
+      renderTable("boroughTable", []);
+      renderTable("highVolumeTable", []);
+      renderTable("hourlyTable", []);
+      renderTable("monthlyTable", []);
+      renderTable("complaintsTable", []);
+
+      Object.values(state.charts).forEach(chart => chart.destroy());
+      state.charts = {};
+    }
+
     async function loadCurrentResults() {
       const resp = await fetch("/api/results");
       const data = await resp.json();
@@ -268,7 +284,7 @@
           return;
         }
 
-        status.textContent = "Pipeline completed successfully.";
+        status.textContent = "Completed successfully.";
         renderResults(data);
       } catch (err) {
         status.textContent = `Request failed: ${err}`;
@@ -279,11 +295,13 @@
     }
 
     document.getElementById("runBtn").addEventListener("click", () => runPipeline("Running scripts... this can take a few minutes."));
-    document.getElementById("refreshBtn").addEventListener("click", () => runPipeline("Refreshing by rerunning pipeline for selected date..."));
+    document.getElementById("refreshBtn").addEventListener("click", () => runPipeline("Refreshing by rerunning for selected date..."));
+    document.getElementById("startDate").addEventListener("change", () => {
+      runPipeline("Date changed. Running for selected date...");
+    });
 
-    const today = new Date().toISOString().slice(0, 10);
-    document.getElementById("startDate").value = today;
-    loadCurrentResults();
+    document.getElementById("startDate").value = "";
+    clearResults();
   </script>
 </body>
 </html>

@@ -51,15 +51,18 @@ Open:
 
 ## How The UI Works
 
-- Select a date in the date picker (`YYYY-MM-DD`).
-- `Run Pipeline` executes, in order:
+- On page load/refresh, date and results start empty.
+- Select a date in the date picker.
+- Changing the date automatically runs the pipeline for that date.
+- `Run` executes, in order:
   1. `scripts/download_api.py --start-date <selected-date>`
   2. `scripts/clean_data.py`
   3. `scripts/spark_analysis.py`
-- `Refresh Results` currently triggers the same pipeline for the selected date (same behavior as `Run Pipeline`).
+- `Refresh Results` currently triggers the same pipeline for the selected date (same behavior as `Run`).
 - After completion, the UI shows KPI cards, charts, and tables.
+- The download step intentionally fetches a single ordered sample (`$limit=1000`, oldest rows after selected date), not full pagination.
 
-## Run Pipeline Manually (CLI)
+## Run Manually (CLI)
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\download_api.py --start-date 2026-04-01
@@ -84,3 +87,23 @@ Each folder contains:
 
 - `high_volume_boroughs` and `borough_counts` can look very similar because both are borough-level counts.
 - The dashboard always reads the latest `part-*.csv` in each output folder.
+
+## Troubleshooting
+
+### UI shows same results for different dates
+
+Most common causes:
+- More than one Flask/Python server is running, and browser is connected to a different instance.
+- The browser has stale page assets.
+
+Fix steps (PowerShell):
+
+```powershell
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+cd C:\Users\komak\OneDrive\Documents\GitHub\NYC-311-Service-Requests
+.\.venv\Scripts\python.exe app_web.py
+```
+
+Then:
+- Open only `http://127.0.0.1:5000`
+- Hard refresh with `Ctrl+F5`

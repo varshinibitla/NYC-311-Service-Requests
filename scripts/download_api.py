@@ -19,12 +19,17 @@ def main() -> None:
     raw_dir = Path("data/raw")
     raw_dir.mkdir(parents=True, exist_ok=True)
 
-    url = f"https://data.cityofnewyork.us/resource/erm2-nwe9.csv?$where=created_date>'{args.start_date}'"
+    url = (
+        "https://data.cityofnewyork.us/resource/erm2-nwe9.csv"
+        f"?$where=created_date>='{args.start_date}T00:00:00'"
+        "&$order=created_date%20ASC"
+        "&$limit=1000"
+    )
 
     print(f"Downloading data from NYC Open Data API (start date: {args.start_date})...")
     df = pd.read_csv(url)
 
-    output_path = raw_dir / "311_2020_present.csv"
+    output_path = raw_dir / "present.csv"
     df.to_csv(output_path, index=False)
 
     print(f"Download complete! File saved to {output_path}")

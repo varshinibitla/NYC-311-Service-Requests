@@ -1,8 +1,8 @@
 import pandas as pd
 from pathlib import Path
 
-RAW = Path("data/raw/311_2020_present.csv")
-CLEAN = Path("data/clean/311_clean_2020_present.csv")
+RAW = Path("data/raw/present.csv")
+CLEAN = Path("data/clean/present.csv")
 
 print("Loading dataset...")
 df = pd.read_csv(RAW, low_memory=False)
